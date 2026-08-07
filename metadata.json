@@ -1,0 +1,6 @@
+{
+  "name": "FIDS - Authentic Indian Cuisine & AI Assistant",
+  "description": "Premium luxury online dining storefront for FIDS Indian Cuisine featuring customer ordering, live kitchen tracking, UPI/GPay instant payment simulation, interactive table reservation, and a floating AI culinary assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
