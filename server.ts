@@ -1,14 +1,11 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
-import { INITIAL_CATEGORIES, INITIAL_MENU_ITEMS } from './src/data/initialData.js';
-import { MenuItem, Order, OrderStatus, Category, TableReservation } from './src/types.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { INITIAL_CATEGORIES, INITIAL_MENU_ITEMS } from './src/data/initialData';
+import { MenuItem, Order, OrderStatus, Category, TableReservation } from './src/types';
 
 const app = express();
 const PORT = 3000;
@@ -89,13 +86,8 @@ let orders: Order[] = [
 // Helper: Initialize Gemini AI Client
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: { 'User-Agent': 'aistudio-build' }
-    }
-  });
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'undefined') return null;
+  return new GoogleGenAI({ apiKey });
 }
 
 // REST API ROUTES
@@ -397,7 +389,7 @@ Example: "Try our Royal Paneer Butter Masala [RECOMMEND: item-6 | Royal Paneer B
         const reply = openAiResponse.choices[0]?.message?.content || 'Welcome to FIDS Indian Cuisine! How may I assist your culinary experience today?';
         return res.json({ success: true, reply, provider: 'OpenAI (gpt-4o-mini)' });
       } catch (openAiErr: any) {
-        console.warn('OpenAI call failed, falling back to Gemini:', openAiErr?.message);
+        // Fallback gracefully without throwing server errors
       }
     }
 
@@ -415,14 +407,15 @@ Example: "Try our Royal Paneer Butter Masala [RECOMMEND: item-6 | Royal Paneer B
         fullPrompt += `Customer: ${message}\nFidsBot:`;
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-2.5-flash',
           contents: fullPrompt,
         });
 
-        const replyText = response.text || "Welcome to FIDS Indian Cuisine! What kind of dishes are you craving today?";
-        return res.json({ success: true, reply: replyText, provider: 'Gemini 3.6 Flash' });
+        if (response.text) {
+          return res.json({ success: true, reply: response.text, provider: 'Gemini 2.5 Flash' });
+        }
       } catch (geminiErr: any) {
-        console.warn('Gemini API call warning:', geminiErr?.message);
+        // Fallback gracefully to smart engine
       }
     }
 
@@ -461,11 +454,28 @@ async function start() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
+
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      try {
+        let template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(500).send('Application build in progress, please refresh in a moment.');
+      }
     });
   }
 

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Bot, User, Sparkles, ShoppingBag, Key, RefreshCw, MessageSquare, GripVertical, CheckCircle2 } from 'lucide-react';
 import { ChatMessage, MenuItem } from '../types';
 
-interface AIChatbotProps {
+export interface AIChatbotProps {
   isOpen: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
+  onClose?: () => void;
   initialQuery?: string;
   menuItems: MenuItem[];
   onAddToCart: (item: MenuItem) => void;
@@ -14,6 +15,7 @@ interface AIChatbotProps {
 export const AIChatbot: React.FC<AIChatbotProps> = ({
   isOpen,
   onToggle,
+  onClose,
   initialQuery,
   menuItems,
   onAddToCart,
@@ -32,12 +34,23 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [customOpenAiKey, setCustomOpenAiKey] = useState('');
-  const [aiProviderBadge, setAiProviderBadge] = useState<string>('Gemini 3.6 Flash');
+  const [aiProviderBadge, setAiProviderBadge] = useState<string>('Gemini 2.5 Flash');
 
-  // Position state for the draggable floating circle button
+  // Unified Toggle Handler to handle both onToggle and onClose props safely
+  const handleToggle = () => {
+    if (isOpen) {
+      if (onClose) onClose();
+      else if (onToggle) onToggle();
+    } else {
+      if (onToggle) onToggle();
+      else if (onClose) onClose();
+    }
+  };
+
+  // Draggable floating circle position state
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
-    const defaultX = typeof window !== 'undefined' ? Math.max(20, window.innerWidth - 88) : 20;
-    const defaultY = typeof window !== 'undefined' ? Math.max(20, window.innerHeight - 88) : 20;
+    const defaultX = typeof window !== 'undefined' ? Math.max(16, window.innerWidth - 80) : 20;
+    const defaultY = typeof window !== 'undefined' ? Math.max(16, window.innerHeight - 100) : 20;
     return { x: defaultX, y: defaultY };
   });
 
@@ -46,6 +59,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   const hasMovedRef = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastInitialQueryRef = useRef<string | undefined>(undefined);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,27 +71,29 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
     }
   }, [messages, isLoading, isOpen]);
 
-  // Adjust position on window resize so button stays inside screen
+  // Adjust position on window resize so circle stays within viewport bounds
   useEffect(() => {
     const handleResize = () => {
       setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 72),
-        y: Math.min(prev.y, window.innerHeight - 72)
+        x: Math.max(12, Math.min(prev.x, window.innerWidth - 72)),
+        y: Math.max(12, Math.min(prev.y, window.innerHeight - 72))
       }));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle initial query if passed
+  // Handle initialQuery if passed from external buttons
   useEffect(() => {
-    if (isOpen && initialQuery) {
+    if (isOpen && initialQuery && initialQuery !== lastInitialQueryRef.current) {
+      lastInitialQueryRef.current = initialQuery;
       handleSendMessage(initialQuery);
     }
   }, [isOpen, initialQuery]);
 
   // Pointer drag logic for floating circle button
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return; // Only primary mouse/touch button
     setIsDragging(true);
     hasMovedRef.current = false;
     dragStartRef.current = {
@@ -106,9 +122,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
 
-      // If user didn't drag, treat as click toggle
+      // If user clicked without dragging, toggle chatbot view
       if (!hasMovedRef.current) {
-        onToggle();
+        handleToggle();
       }
     };
 
@@ -146,7 +162,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
       if (data.success && data.reply) {
         if (data.provider) setAiProviderBadge(data.provider);
 
-        // Parse recommendation tags cleanly: [RECOMMEND: item_id | Name | Price]
+        // Parse recommendation tags: [RECOMMEND: item_id | Name | Price]
         const recommendedItemIds: string[] = [];
         const matches = data.reply.match(/\[RECOMMEND:\s*([^\]]+)\]/g);
         if (matches) {
@@ -205,6 +221,10 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
     }
   };
 
+  // Determine popup position relative to floating circle button so popover doesn't go offscreen
+  const isLeftHalf = typeof window !== 'undefined' ? position.x < window.innerWidth / 2 : false;
+  const isTopHalf = typeof window !== 'undefined' ? position.y < window.innerHeight / 2 : false;
+
   return (
     <>
       {/* Draggable Circle Floating AI Button */}
@@ -212,26 +232,26 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
         style={{ left: `${position.x}px`, top: `${position.y}px` }}
         onPointerDown={handlePointerDown}
         className={`fixed z-50 select-none touch-none cursor-grab active:cursor-grabbing flex items-center group ${
-          isDragging ? 'scale-105 opacity-90' : 'hover:scale-105'
-        } transition-transform duration-100`}
-        title="Drag to move • Click to toggle FidsBot AI"
+          isDragging ? 'scale-110 opacity-90' : 'hover:scale-105'
+        } transition-transform duration-150`}
+        title="Drag to move anywhere • Click to open FidsBot AI"
       >
-        {/* Modern WordPress Inspired Circular Button */}
-        <div className="relative w-14 h-14 rounded-full bg-[#1d2327] border-2 border-amber-400/90 text-amber-400 shadow-2xl flex items-center justify-center backdrop-blur-md ring-4 ring-black/40">
+        {/* WordPress Inspired Circular Button */}
+        <div className="relative w-14 h-14 rounded-full bg-[#1d2327] border-2 border-amber-400 text-amber-400 shadow-2xl flex items-center justify-center backdrop-blur-md ring-4 ring-black/50 hover:ring-amber-500/30 transition-all">
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-amber-600 text-stone-950 font-black flex items-center justify-center text-xl shadow-inner">
             🤖
           </div>
           
-          {/* Active Pulse Status */}
-          <span className="w-3.5 h-3.5 bg-emerald-400 border-2 border-stone-900 rounded-full absolute top-0 right-0 animate-pulse shadow-sm" />
+          {/* Active Pulse Indicator */}
+          <span className="w-3.5 h-3.5 bg-emerald-400 border-2 border-stone-900 rounded-full absolute -top-0.5 -right-0.5 animate-pulse shadow-md" />
         </div>
 
-        {/* Floating Tooltip Label (Gutenberg editorial style) */}
-        <div className="hidden sm:flex items-center gap-1.5 ml-2.5 px-3 py-1.5 rounded-full bg-[#1d2327] border border-stone-800 text-white text-xs font-bold shadow-xl backdrop-blur-md pointer-events-none">
+        {/* Floating Tooltip Pill (WordPress Gutenberg style) */}
+        <div className="hidden sm:flex items-center gap-1.5 ml-2.5 px-3 py-1.5 rounded-full bg-[#1d2327] border border-stone-800 text-white text-xs font-bold shadow-2xl backdrop-blur-md pointer-events-none">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
           <span>FidsBot AI</span>
-          <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono px-1.5 py-0.2 rounded border border-amber-500/30">
-            Move
+          <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono px-1.5 py-0.5 rounded border border-amber-500/30">
+            Drag
           </span>
         </div>
       </div>
@@ -240,10 +260,12 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
       {isOpen && (
         <div
           style={{
-            bottom: '80px',
-            right: Math.max(16, Math.min(typeof window !== 'undefined' ? window.innerWidth - 390 : 20, typeof window !== 'undefined' ? window.innerWidth - position.x - 20 : 20)),
+            left: isLeftHalf ? `${Math.min(position.x, typeof window !== 'undefined' ? window.innerWidth - 380 : 20)}px` : 'auto',
+            right: !isLeftHalf ? `${Math.max(16, (typeof window !== 'undefined' ? window.innerWidth : 1000) - position.x - 60)}px` : 'auto',
+            top: isTopHalf ? `${position.y + 64}px` : 'auto',
+            bottom: !isTopHalf ? `${Math.max(16, (typeof window !== 'undefined' ? window.innerHeight : 1000) - position.y + 10)}px` : 'auto',
           }}
-          className="fixed z-50 w-96 max-w-[calc(100vw-2rem)] h-[530px] bg-[#1d2327] border border-stone-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-stone-100 animate-fadeIn backdrop-blur-xl"
+          className="fixed z-50 w-96 max-w-[calc(100vw-2rem)] h-[530px] bg-[#1d2327] border border-stone-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-stone-100 animate-fadeIn backdrop-blur-2xl ring-1 ring-white/10"
         >
           {/* WordPress Admin Header */}
           <div className="p-4 bg-[#111827] border-b border-stone-800 flex items-center justify-between">
@@ -273,7 +295,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
               </button>
 
               <button
-                onClick={onToggle}
+                onClick={handleToggle}
                 className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -291,7 +313,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                 </button>
               </div>
               <p className="text-[10px] text-stone-400 leading-relaxed">
-                Default model is Gemini 3.6 Flash. Enter custom OpenAI Key if desired:
+                Default model is Gemini 2.5 Flash. Enter custom OpenAI Key if desired:
               </p>
               <input
                 type="password"
@@ -303,7 +325,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
             </div>
           )}
 
-          {/* Messages */}
+          {/* Messages Container */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-stone-900/60 text-xs">
             {messages.map((msg) => (
               <div
@@ -327,7 +349,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                 }`}>
                   <p className="whitespace-pre-line">{msg.text}</p>
 
-                  {/* Add to cart smart actions */}
+                  {/* Add to cart smart action cards */}
                   {msg.suggestedActions && msg.suggestedActions.length > 0 && (
                     <div className="pt-2 border-t border-stone-800 space-y-1.5">
                       {msg.suggestedActions.map((act, i) => (
@@ -365,9 +387,9 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Gutenberg Block Prompts */}
-          <div className="px-3 py-1.5 bg-[#111827] border-t border-stone-800 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[10px]">
-            <span className="text-stone-500 font-bold shrink-0">Gutenberg Prompts:</span>
+          {/* WordPress Gutenberg Blocks Prompt Bar */}
+          <div className="px-3 py-2 bg-[#111827] border-t border-stone-800 flex items-center gap-1.5 overflow-x-auto text-[10px]">
+            <span className="text-stone-500 font-bold shrink-0">Prompts:</span>
             {[
               "Veg Recommendations",
               "Non-Veg Specials",
@@ -383,14 +405,14 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
                     handleSendMessage(p);
                   }
                 }}
-                className="px-2.5 py-1 rounded-full bg-stone-800 text-stone-300 hover:text-amber-400 border border-stone-700 shrink-0 font-medium transition-colors"
+                className="px-2.5 py-1 rounded-full bg-stone-800 text-stone-300 hover:text-amber-400 hover:bg-stone-700 border border-stone-700 shrink-0 font-medium transition-colors"
               >
                 {p}
               </button>
             ))}
           </div>
 
-          {/* Input Bar */}
+          {/* Input Form */}
           <div className="p-3 bg-[#111827] border-t border-stone-800">
             <form
               onSubmit={(e) => {
@@ -401,7 +423,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
             >
               <input
                 type="text"
-                placeholder="Type your culinary question..."
+                placeholder="Ask FidsBot a question..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 className="flex-1 bg-stone-900 border border-stone-800 rounded-xl px-3 py-2 text-xs text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500"

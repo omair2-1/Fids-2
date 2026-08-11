@@ -11,6 +11,7 @@ interface HeroProps {
   categories: Category[];
   onAddToCart: (item: MenuItem) => void;
   onSelectCategory: (catId: string) => void;
+  isChatEnabled?: boolean;
 }
 
 export const Hero: React.FC<HeroProps> = ({
@@ -22,6 +23,7 @@ export const Hero: React.FC<HeroProps> = ({
   categories,
   onAddToCart,
   onSelectCategory,
+  isChatEnabled = true,
 }) => {
   return (
     <div className="space-y-12 pb-16">
@@ -74,13 +76,15 @@ export const Hero: React.FC<HeroProps> = ({
               </button>
             )}
 
-            <button
-              onClick={onOpenChat}
-              className="px-5 py-3.5 rounded-2xl bg-stone-900/80 text-stone-200 border border-stone-800 hover:bg-stone-800 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
-            >
-              <Bot className="w-4 h-4 text-amber-400" />
-              <span>Ask FidsBot AI</span>
-            </button>
+            {isChatEnabled && (
+              <button
+                onClick={onOpenChat}
+                className="px-5 py-3.5 rounded-2xl bg-stone-900/80 text-stone-200 border border-stone-800 hover:bg-stone-800 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
+              >
+                <Bot className="w-4 h-4 text-amber-400" />
+                <span>Ask FidsBot AI</span>
+              </button>
+            )}
           </div>
 
           {/* Quick Metrics Bar */}

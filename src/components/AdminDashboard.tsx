@@ -6,12 +6,16 @@ interface AdminDashboardProps {
   categories: Category[];
   menuItems: MenuItem[];
   onRefreshMenu: () => void;
+  isChatEnabled?: boolean;
+  onToggleChatEnabled?: (enabled: boolean) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   categories,
   menuItems,
   onRefreshMenu,
+  isChatEnabled = true,
+  onToggleChatEnabled,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passkeyInput, setPasskeyInput] = useState('');
@@ -253,7 +257,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* Analytics Metric Cards */}
+      {/* AI Chatbot Visibility & Sharing Control Card */}
+      <div className="bg-stone-900 border border-stone-800 p-6 rounded-3xl text-stone-100 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xl font-bold">
+              🤖
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white">AI Culinary Chatbot (FidsBot)</h3>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                  isChatEnabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                }`}>
+                  {isChatEnabled ? 'VISIBLE TO VISITORS' : 'HIDDEN FROM VISITORS'}
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 mt-0.5">Control whether website visitors see or can open the AI chat widget</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-stone-300">
+              {isChatEnabled ? 'AI Chat Enabled' : 'AI Chat Disabled'}
+            </span>
+            <button
+              onClick={() => onToggleChatEnabled && onToggleChatEnabled(!isChatEnabled)}
+              className="p-1 rounded-full transition-colors focus:outline-none"
+              title="Toggle AI Chatbot Visibility for Visitors"
+            >
+              {isChatEnabled ? (
+                <ToggleRight className="w-10 h-10 text-amber-400" />
+              ) : (
+                <ToggleLeft className="w-10 h-10 text-stone-600" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-stone-300 bg-stone-950 p-4 rounded-2xl border border-stone-800/80">
+          <div className="space-y-1">
+            <div className="font-bold text-amber-400">🔗 How to share your website without AI Chat:</div>
+            <p className="text-stone-400 text-[11px]">
+              You can turn OFF the AI Chatbot switch above, OR share your website URL with <code className="bg-stone-900 text-amber-300 px-1.5 py-0.5 rounded font-mono border border-stone-800">?chat=false</code> appended to automatically hide the chat for anyone opening that link!
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const noChatUrl = window.location.origin + window.location.pathname + '?chat=false';
+              navigator.clipboard.writeText(noChatUrl);
+              alert('Copied link without chat to clipboard:\n' + noChatUrl);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-amber-500/20 text-amber-300 font-bold hover:bg-amber-500/30 border border-amber-500/30 shrink-0 transition-colors"
+          >
+            Copy No-Chat Website Link
+          </button>
+        </div>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm">
           <div className="flex items-center justify-between text-stone-400 text-xs font-bold uppercase">

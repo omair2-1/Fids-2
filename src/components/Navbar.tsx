@@ -13,6 +13,8 @@ interface NavbarProps {
   isVegOnly: boolean;
   setIsVegOnly: (veg: boolean) => void;
   onOpenReservation?: () => void;
+  isChatEnabled?: boolean;
+  onToggleChatEnabled?: (enabled: boolean) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,6 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isVegOnly,
   setIsVegOnly,
   onOpenReservation,
+  isChatEnabled = true,
+  onToggleChatEnabled,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 

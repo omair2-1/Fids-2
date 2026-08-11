@@ -31,6 +31,30 @@ export default function App() {
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [chatInitialQuery, setChatInitialQuery] = useState<string | undefined>(undefined);
 
+  // Chatbot visibility control state (URL query param ?chat=false or ?nochat=true or localStorage)
+  const [isChatEnabled, setIsChatEnabled] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('chat') === 'false' || params.get('nochat') === 'true') {
+        return false;
+      }
+      const saved = localStorage.getItem('fids_chat_enabled');
+      return saved !== null ? saved === 'true' : true; // Enabled by default unless turned off or shared with ?chat=false
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleChatEnabled = (enabled: boolean) => {
+    setIsChatEnabled(enabled);
+    if (!enabled) setIsChatOpen(false);
+    try {
+      localStorage.setItem('fids_chat_enabled', enabled ? 'true' : 'false');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isVegOnly, setIsVegOnly] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -134,6 +158,8 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         isVegOnly={isVegOnly}
         setIsVegOnly={setIsVegOnly}
+        isChatEnabled={isChatEnabled}
+        onToggleChatEnabled={handleToggleChatEnabled}
       />
 
       {/* Main View Container */}
@@ -142,12 +168,13 @@ export default function App() {
           <Hero
             onExploreMenu={() => setCurrentTab('menu')}
             onOpenCart={() => setIsCartOpen(true)}
-            onOpenChat={() => setIsChatOpen(true)}
+            onOpenChat={() => isChatEnabled && setIsChatOpen(true)}
             onOpenReservation={() => setIsReservationOpen(true)}
             featuredItems={menuItems}
             categories={categories}
             onAddToCart={handleAddToCart}
             onSelectCategory={(catId) => setSelectedCategory(catId)}
+            isChatEnabled={isChatEnabled}
           />
         )}
 
@@ -170,7 +197,8 @@ export default function App() {
         {currentTab === 'track' && (
           <OrderTracker
             currentOrder={activeTrackOrder}
-            onOpenChatWithQuery={handleOpenChatWithQuery}
+            onOpenChatWithQuery={(q) => isChatEnabled && handleOpenChatWithQuery(q)}
+            isChatEnabled={isChatEnabled}
           />
         )}
 
@@ -179,6 +207,8 @@ export default function App() {
             categories={categories}
             menuItems={menuItems}
             onRefreshMenu={fetchMenuData}
+            isChatEnabled={isChatEnabled}
+            onToggleChatEnabled={handleToggleChatEnabled}
           />
         )}
       </main>
@@ -194,14 +224,18 @@ export default function App() {
         onOrderCreated={handleOrderCreated}
       />
 
-      {/* AI Culinary Chatbot Modal */}
-      <AIChatbot
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        initialQuery={chatInitialQuery}
-        menuItems={menuItems}
-        onAddToCart={handleAddToCart}
-      />
+      {/* AI Culinary Chatbot Modal - Only rendered when AI Chat is enabled */}
+      {isChatEnabled && (
+        <AIChatbot
+          isOpen={isChatOpen}
+          onToggle={() => setIsChatOpen(!isChatOpen)}
+          onClose={() => setIsChatOpen(false)}
+          initialQuery={chatInitialQuery}
+          menuItems={menuItems}
+          onAddToCart={handleAddToCart}
+          onOpenReservation={() => setIsReservationOpen(true)}
+        />
+      )}
 
       {/* Table Reservation Modal */}
       <TableReservationModal
@@ -212,7 +246,8 @@ export default function App() {
       {/* Footer */}
       <Footer
         onNavigate={setCurrentTab}
-        onOpenChat={() => setIsChatOpen(true)}
+        onOpenChat={() => isChatEnabled && setIsChatOpen(true)}
+        isChatEnabled={isChatEnabled}
       />
     </div>
   );

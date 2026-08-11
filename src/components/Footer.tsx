@@ -4,9 +4,10 @@ import { Clock, MapPin, Phone, ShieldCheck, Heart, Sparkles } from 'lucide-react
 interface FooterProps {
   onNavigate: (tab: 'home' | 'menu' | 'track' | 'admin') => void;
   onOpenChat: () => void;
+  isChatEnabled?: boolean;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenChat }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenChat, isChatEnabled = true }) => {
   return (
     <footer className="bg-stone-950 text-stone-300 border-t border-stone-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
@@ -57,12 +58,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenChat }) => {
                   Kitchen Admin Portal
                 </button>
               </li>
-              <li>
-                <button onClick={onOpenChat} className="hover:text-amber-300 transition-colors text-amber-400 font-bold flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  <span>FidsBot AI Assistant</span>
-                </button>
-              </li>
+              {isChatEnabled && (
+                <li>
+                  <button onClick={onOpenChat} className="hover:text-amber-300 transition-colors text-amber-400 font-bold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    <span>FidsBot AI Assistant</span>
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
 

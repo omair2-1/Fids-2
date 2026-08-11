@@ -5,9 +5,10 @@ import { Order, OrderStatus } from '../types';
 interface OrderTrackerProps {
   currentOrder: Order | null;
   onOpenChatWithQuery?: (query: string) => void;
+  isChatEnabled?: boolean;
 }
 
-export const OrderTracker: React.FC<OrderTrackerProps> = ({ currentOrder, onOpenChatWithQuery }) => {
+export const OrderTracker: React.FC<OrderTrackerProps> = ({ currentOrder, onOpenChatWithQuery, isChatEnabled = true }) => {
   const [searchId, setSearchId] = useState(currentOrder ? currentOrder.id : '');
   const [activeOrder, setActiveOrder] = useState<Order | null>(currentOrder);
   const [isLoading, setIsLoading] = useState(false);
@@ -216,7 +217,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ currentOrder, onOpen
                 Advance Status ➡️
               </button>
 
-              {onOpenChatWithQuery && (
+              {isChatEnabled && onOpenChatWithQuery && (
                 <button
                   onClick={() => onOpenChatWithQuery(`Where is my order #${activeOrder.id}?`)}
                   className="px-3 py-1.5 rounded-lg bg-stone-950 text-amber-400 border border-stone-800 font-bold hover:bg-stone-800 transition-colors flex items-center gap-1"
