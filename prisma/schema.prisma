@@ -1,0 +1,111 @@
+// FIDS Restaurant — database schema
+//
+// Field names intentionally match the existing TypeScript types in src/types.ts
+// (snake_case) so server.ts can return Prisma records directly as JSON without
+// a separate mapping layer, and the existing frontend keeps working unchanged.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  icon        String?
+  description String?
+  menu_items  MenuItem[]
+}
+
+model MenuItem {
+  id            String      @id @default(cuid())
+  category_id   String
+  category      Category    @relation(fields: [category_id], references: [id])
+  name          String
+  description   String
+  price         Float
+  is_veg        Boolean     @default(true)
+  is_available  Boolean     @default(true)
+  image_url     String
+  spice_level   String?
+  calories      String?
+  prep_time_est Int?
+  rating        Float?      @default(5.0)
+  review_count  Int?        @default(0)
+  tags          String[]    @default([])
+
+  @@index([category_id])
+}
+
+// Order.id is a randomly-generated code (e.g. "ORD-3F9A2B1C"), assigned in
+// application code — NOT sequential. This is deliberate: GET /api/orders/:id
+// is intentionally public (so customers can track an order without logging
+// in), so order IDs must not be guessable, or anyone could enumerate them
+// and read other customers' names/phone numbers/addresses.
+model Order {
+  id                     String               @id
+  customer_name          String
+  customer_phone         String
+  customer_address       String
+  delivery_type          String
+  table_number           String?
+  total_amount           Float
+  status                 String               @default("Pending")
+  estimated_prep_time    Int                  @default(20)
+  payment_status         String               @default("Unpaid")
+  payment_method         String
+  payment_transaction_id String?
+  special_instructions   String?
+  created_at             DateTime             @default(now())
+  items                  OrderItem[]
+  history                OrderStatusHistory[]
+
+  @@index([customer_phone])
+  @@index([created_at])
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  order_id     String
+  order        Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menu_item_id String? // not a hard FK: a menu item may later be edited/removed, order history should still stand
+  name         String
+  quantity     Int
+  price        Float
+  is_veg       Boolean
+  notes        String?
+
+  @@index([order_id])
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(cuid())
+  order_id  String
+  order     Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  status    String
+  timestamp DateTime @default(now())
+  note      String?
+
+  @@index([order_id])
+}
+
+// Same non-sequential ID reasoning as Order applies here for consistency,
+// though GET /api/reservations is currently admin-only.
+model TableReservation {
+  id               String   @id
+  guest_name       String
+  guest_phone      String
+  guest_email      String?
+  date             String
+  time             String
+  guests_count     Int
+  table_preference String?
+  special_occasion String?
+  status           String   @default("Confirmed")
+  created_at       DateTime @default(now())
+}
