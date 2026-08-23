@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ShieldCheck, Plus, ToggleLeft, ToggleRight, DollarSign, Package, Clock, CheckCircle2, AlertCircle, Edit, Trash2, RefreshCw, X, ChefHat, Filter } from 'lucide-react';
 import { MenuItem, Category, Order, OrderStatus } from '../types';
 
@@ -45,6 +45,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [ordersList, setOrdersList] = useState<Order[]>([]);
   const [selectedOrderStatusFilter, setSelectedOrderStatusFilter] = useState<string>('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [newOrderAlert, setNewOrderAlert] = useState<string | null>(null);
+  const knownOrderIds = useRef<Set<string>>(new Set());
+  const hasLoadedOnce = useRef(false);
+
+  // A short, pleasant alert tone generated on the fly — no audio file needed,
+  // and no dependency on any external asset that could go missing.
+  const playAlertSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
+      [880, 1108].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + i * 0.15 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+      });
+    } catch (err) {
+      // Some browsers block audio until the user has interacted with the page — harmless if it's skipped.
+    }
+  };
 
   // New Menu Item Modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -95,6 +122,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     sessionStorage.removeItem('fids_admin_token');
     setAdminToken(null);
     setIsAuthenticated(false);
+    hasLoadedOnce.current = false;
+    knownOrderIds.current = new Set();
   };
 
   const fetchOrders = async () => {
@@ -103,6 +132,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await adminFetch('/api/orders');
       const data = await res.json();
       if (data.success && data.orders) {
+        if (hasLoadedOnce.current) {
+          const freshlyArrived = data.orders.filter((o: Order) => !knownOrderIds.current.has(o.id));
+          if (freshlyArrived.length > 0) {
+            playAlertSound();
+            setNewOrderAlert(
+              freshlyArrived.length === 1
+                ? `New order from ${freshlyArrived[0].customer_name} — ₹${freshlyArrived[0].total_amount}`
+                : `${freshlyArrived.length} new orders just came in`
+            );
+            setTimeout(() => setNewOrderAlert(null), 8000);
+          }
+        }
+        knownOrderIds.current = new Set(data.orders.map((o: Order) => o.id));
+        hasLoadedOnce.current = true;
         setOrdersList(data.orders);
       }
     } catch (err) {
@@ -124,6 +167,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (isAuthenticated) {
       fetchOrders();
     }
+  }, [isAuthenticated]);
+
+  // Poll for new orders every 20 seconds while the dashboard is open, so
+  // staff hear/see a new order without needing to keep hitting refresh.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(fetchOrders, 20000);
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   // Toggle In Stock / Out of Stock
@@ -276,6 +327,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="space-y-8 pb-16">
+      {/* New Order Alert Banner */}
+      {newOrderAlert && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-stone-950 font-black text-sm px-6 py-3.5 rounded-2xl shadow-2xl shadow-emerald-500/30 flex items-center gap-3 animate-bounce">
+          <span className="text-xl">🔔</span>
+          <span>{newOrderAlert}</span>
+          <button onClick={() => setNewOrderAlert(null)} className="ml-2 text-stone-950/60 hover:text-stone-950">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Header Bar */}
       <div className="bg-stone-900 text-white p-6 sm:p-8 rounded-3xl border border-stone-800 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
